@@ -9,6 +9,13 @@
     Connect a piezo buzzer or speaker to pin 11 or select a new pin.
     More songs available at https://github.com/robsoncouto/arduino-songs
     - Robson Couto, 2019
+
+    Dino-Game
+    Author:    Harsh Mittal
+    Created:   10.07.2021
+    Github: www.github.com/harshmittal2210
+    Email: harshmittal2210@gmail.com
+    (c) Copyright by Harsh Mittal.
 */
 
 // Include 
@@ -31,6 +38,51 @@
 #define SCREEN_ADDRESS 0x3C
 #define TOPIC_PASSCODE TOPIC_PREFIX "/pass"
 #define TOPIC_ST TOPIC_PREFIX "/start"
+#define TOPIC_SP TOPIC_PREFIX "/speed"
+//Dino
+//Dino
+#define DINO_WIDTH 25
+#define DINO_HEIGHT 26
+#define DINO_INIT_X 10 // Dino initial spawn location
+#define DINO_INIT_Y 29 // Dino initial spawn location
+#define BASE_LINE_X 0
+#define BASE_LINE_Y 54
+#define BASE_LINE_X1 127
+#define BASE_LINE_Y1 54
+#define TREE1_WIDTH 11
+#define TREE1_HEIGHT 23
+#define TREE2_WIDTH 22
+#define TREE2_HEIGHT 23
+#define TREE_Y 35
+#define JUMP_PIXEL 22
+
+static const unsigned char PROGMEM dino1[]={
+  // 'dino', 25x26px
+  0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0xfe, 0x00, 0x00, 0x06, 0xff, 0x00, 0x00, 0x0e, 0xff, 0x00, 
+  0x00, 0x0f, 0xff, 0x00, 0x00, 0x0f, 0xff, 0x00, 0x00, 0x0f, 0xff, 0x00, 0x00, 0x0f, 0xc0, 0x00, 
+  0x00, 0x0f, 0xfc, 0x00, 0x40, 0x0f, 0xc0, 0x00, 0x40, 0x1f, 0x80, 0x00, 0x40, 0x7f, 0x80, 0x00, 
+  0x60, 0xff, 0xe0, 0x00, 0x71, 0xff, 0xa0, 0x00, 0x7f, 0xff, 0x80, 0x00, 0x7f, 0xff, 0x80, 0x00, 
+  0x7f, 0xff, 0x80, 0x00, 0x3f, 0xff, 0x00, 0x00, 0x1f, 0xff, 0x00, 0x00, 0x0f, 0xfe, 0x00, 0x00, 
+  0x03, 0xfc, 0x00, 0x00, 0x01, 0xdc, 0x00, 0x00, 0x01, 0x8c, 0x00, 0x00, 0x01, 0x8c, 0x00, 0x00, 
+  0x01, 0x0c, 0x00, 0x00, 0x01, 0x8e, 0x00, 0x00
+};
+
+static const unsigned char PROGMEM tree1[]={
+  // 'tree1', 11x23px
+  0x1e, 0x00, 0x1f, 0x00, 0x1f, 0x40, 0x1f, 0xe0, 0x1f, 0xe0, 0xdf, 0xe0, 0xff, 0xe0, 0xff, 0xe0, 
+  0xff, 0xe0, 0xff, 0xe0, 0xff, 0xe0, 0xff, 0xe0, 0xff, 0xc0, 0xff, 0x00, 0xff, 0x00, 0x7f, 0x00, 
+  0x1f, 0x00, 0x1f, 0x00, 0x1f, 0x00, 0x1f, 0x00, 0x1f, 0x00, 0x1f, 0x00, 0x1f, 0x00
+};
+
+static const unsigned char PROGMEM tree2[]={
+  // 'tree2', 22x23px
+  0x1e, 0x01, 0xe0, 0x1f, 0x03, 0xe0, 0x1f, 0x4f, 0xe8, 0x1f, 0xff, 0xfc, 0x1f, 0xff, 0xfc, 0xdf, 
+  0xff, 0xfc, 0xff, 0xff, 0xfc, 0xff, 0xff, 0xfc, 0xff, 0xff, 0xfc, 0xff, 0xff, 0xfc, 0xff, 0xff, 
+  0xfc, 0xff, 0xef, 0xfc, 0xff, 0x83, 0xfc, 0xff, 0x03, 0xfc, 0xff, 0x03, 0xf8, 0x7f, 0x03, 0xe0, 
+  0x1f, 0x03, 0xe0, 0x1f, 0x03, 0xe0, 0x1f, 0x03, 0xe0, 0x1f, 0x03, 0xe0, 0x1f, 0x03, 0xe0, 0x1f, 
+  0x03, 0xe0, 0x1f, 0x03, 0xe0
+};
+
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 WiFiClient wifiClient;
 PubSubClient mqtt(MQTT_BROKER, 1883, wifiClient);
@@ -199,6 +251,7 @@ int buttonState = 0;
 int buttonStart = 1;
 int checkstart = 0;
 int checkpush = 0;
+int gamestart = 1;
 int tempo = 80;
 int notes = sizeof(melody) / sizeof(melody[0]) / 2;
 int wholenote = (60000 * 4) / tempo;
@@ -207,11 +260,12 @@ int a;
 int b;
 int c;
 int d;
-
-
+int rscore = 0;
+int score = 0;
 String password = "0000";
 
 void setup() {
+  gamestart = 1;
   Serial.begin(9600);
   Wire.begin(48, 47);
   connect_wifi();
@@ -223,12 +277,13 @@ void setup() {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;); // Don't proceed, loop forever
   }
+  display.clearDisplay();
+  mainshow();
 }
 
 void loop() {
   digitalWrite(buzzer,LOW);
   mqtt.loop();
-  introMessage();
 }
 
 void connect_wifi() {
@@ -253,6 +308,7 @@ void connect_mqtt() {
   mqtt.setCallback(mqtt_callback);
   mqtt.subscribe(TOPIC_PASSCODE);
   mqtt.subscribe(TOPIC_ST);
+  mqtt.subscribe(TOPIC_SP);
   printf("MQTT broker connected.\n");
 }
 
@@ -261,13 +317,33 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     payload[length] = 0;
     int value = atoi((char*)payload); 
     if (value == 1) {
+      gamestart = 1;
       Serial.println("Game Request to Start");
+      rscore = random(10,15);
       ranpass();
       pubpass();
+      introMessage();
+      while(gamestart){
+        score=0;
+        buttonStart = digitalRead(buttonsw1);
+        Serial.println(buttonStart);
+        if(buttonStart==0){
+          checkstart = 1;
+          if (gamestart == 1){
+          play();
+          }
+        }
+      }
     }
     else{
       Serial.println("Stop the game");
     }
+  }
+  if (strcmp(topic, TOPIC_SP) == 0) {
+    payload[length] = 0;
+    int value = atoi((char*)payload);
+    ranpass();
+    pubpass();
   }
 }
 
@@ -643,17 +719,166 @@ void song2(){
 void introMessage(){
   display.clearDisplay();
   display.setTextSize(2);             // Draw 2X-scale text
-  display.setTextColor(BLACK, WHITE);
+  display.setTextColor(SSD1306_WHITE);
   display.setCursor(10,5);
-  display.println("Get Up!");
+  display.println("Dino Game");
   
 
   display.setTextSize(1);
-  display.setTextColor(WHITE, BLACK);
+  
   display.setCursor(5,45);
-  display.println("Push A To Enter Passcode");
+  display.println("Enter 1 To Play ");
 
   display.display();
+}
+void moveDino(int16_t *y, int type=0){
+  display.drawBitmap(DINO_INIT_X, *y, dino1, DINO_WIDTH, DINO_HEIGHT, SSD1306_WHITE);
+}
+void moveTree(int16_t *x, int type=0){
+  if(type==0){
+    display.drawBitmap(*x, TREE_Y, tree1, TREE1_WIDTH, TREE1_HEIGHT, SSD1306_WHITE);
+  }
+  else if(type==1){
+    display.drawBitmap(*x, TREE_Y, tree2, TREE2_WIDTH, TREE2_HEIGHT, SSD1306_WHITE);
+  }
+  
+}
+
+// Game over display with score
+void gameOver(int score=0){
+  display.clearDisplay();
+
+  display.setTextSize(2);             // Draw 2X-scale text
+  display.setTextColor(SSD1306_WHITE);
+  display.setCursor(10,5);
+  display.println("Game Over");
+  
+
+  display.setTextSize(1);
+
+  display.setCursor(10,30);
+  display.print("Score: ");
+  display.print(score);
+  score = 0;
+  
+  display.setCursor(1,45);
+  display.println("Enter 1 To Play Again");
+  display.display();
+}
+
+// Display score while running the game
+void displayScore(int score){
+  display.setTextSize(1);
+  display.setCursor(64,10);
+  display.print("Score: ");
+  display.print(score);
+}
+void displayRScore(int rscore){
+  display.setTextSize(1);
+  display.setCursor(60,20);
+  display.print("R-Score: ");
+  display.print(rscore);
+}
+// Main play function
+void play(){
+
+  int16_t tree_x=127;
+  int16_t tree1_x=195;
+  int tree_type = random(0,2);
+  int tree_type1 = random(0,2);
+
+  int16_t dino_y = DINO_INIT_Y;
+  int input_command;
+  int jump=0;
+
+  
+  for(;;){
+    display.clearDisplay();
+    buttonState = digitalRead(buttonsw1);
+    input_command = buttonState;
+    Serial.println(input_command);
+
+    if(input_command==0){
+      Serial.println("Jump");
+      if(jump==0) jump=1;
+    }
+
+    if(jump==1){
+      dino_y--;
+      if(dino_y== (DINO_INIT_Y-JUMP_PIXEL)){
+        jump=2;
+        score++;
+      }
+    }
+    else if(jump==2){
+      dino_y++;
+      if(dino_y== DINO_INIT_Y){
+        jump=0; 
+      }
+    }
+
+    if(tree_x<= (DINO_INIT_X+DINO_WIDTH) && tree_x>= (DINO_INIT_X+(DINO_WIDTH/2))){
+//      Serial.println("Might be Collision Happend");
+      if(dino_y>=(DINO_INIT_Y-3)){
+        // Collision Happened
+        Serial.println("Collision Happend");
+        break;
+      }    
+    }
+
+    if(tree1_x<= (DINO_INIT_X+DINO_WIDTH) && tree1_x>= (DINO_INIT_X+(DINO_WIDTH/2))){
+//      Serial.println("Might be Collision Happend");
+      if(dino_y>=(DINO_INIT_Y-3)){
+        // Collision Happened
+        Serial.println("Collision Happend");
+        break;
+      }    
+    }
+
+    displayScore(score);
+    displayRScore(rscore);
+    moveTree(&tree_x,tree_type);
+    moveTree(&tree1_x,tree_type1);
+    moveDino(&dino_y);
+    display.drawLine(0, 54, 127, 54, SSD1306_WHITE);
+    
+
+    tree_x--;
+    tree1_x--;
+    if(tree_x==0) {
+      tree_x = 127;
+      tree_type = random(0,1);
+    }
+
+    if(tree1_x==0) {
+      tree1_x = 195;
+      tree_type1 = random(0,1);
+    }
+
+    if (score==rscore){
+      pubpass();
+      showpass();
+      delay(3000);
+      mainshow();
+      score=0;
+      gamestart=0;
+      break;
+    }
+    display.display();
+
+  }
+
+  Serial.println("Game Over");
+  if (gamestart == 1){
+  gameOver(score);}
+}
+
+void renderScene(int16_t i=0){
+  display.drawBitmap(10, 29, dino1, 25, 26, SSD1306_WHITE);
+  display.drawBitmap(50, TREE_Y, tree1, 11, 23, SSD1306_WHITE);
+  display.drawBitmap(100, TREE_Y, tree2, 22, 23, SSD1306_WHITE);
+  display.drawLine(0, 54, 127, 54, SSD1306_WHITE);
+  display.drawPixel(i, 60, SSD1306_WHITE);
 }
 
 void startgame(){
@@ -675,3 +900,35 @@ void pubpass(){
   mqtt.publish(TOPIC_PASSCODE, payload.c_str());
 }
 
+void showpass(){
+  display.clearDisplay();
+  display.setTextSize(2);             // Draw 2X-scale text
+  display.setTextColor(BLACK, WHITE);
+  display.setCursor(10,5);
+  display.println("Winner");
+  
+
+  display.setTextSize(1);
+  display.setTextColor(WHITE, BLACK);
+  display.setCursor(10,35);
+  display.println("Passcode is.....");
+  display.setTextColor(BLACK, WHITE);
+  display.setTextSize(2);
+  display.setCursor(10,45);
+  display.println(password);
+
+  display.display();
+}
+
+void mainshow(){
+  display.clearDisplay();
+  display.setTextSize(2);             // Draw 2X-scale text
+  display.setTextColor(BLACK, WHITE);
+  display.setCursor(10,5);
+  display.println("Notice");
+  display.setTextSize(1);
+  display.setTextColor(WHITE, BLACK);
+  display.setCursor(10,35);
+  display.println("Waiting Req. From  Board A");
+  display.display();
+}

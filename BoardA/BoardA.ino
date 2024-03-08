@@ -9,6 +9,7 @@
     Connect a piezo buzzer or speaker to pin 11 or select a new pin.
     More songs available at https://github.com/robsoncouto/arduino-songs
     - Robson Couto, 2019
+
 */
 
 // Include 
@@ -485,7 +486,7 @@ void oledDisplayCenter() {
   rsec -= 1;
   }
   if (rsec == 0){
-    song2();
+    //song2();
     checkpush = 1;
     //introMessage();
     rnum = random(45, 60);
