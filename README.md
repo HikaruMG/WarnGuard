@@ -2,7 +2,7 @@
   The system warns you if you've been sitting for too long and there are activities to do to reduce office syndrome. using ESP32-S3 microcontrollers and data is sent between them via the MQTT protocol. Users can view the dashboard in Node-RED.
 <hr></hr>
 
-## Program
+## Programs
 - Arduino
 - Node-RED
 
