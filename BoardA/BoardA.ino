@@ -1,8 +1,5 @@
 /*  --Credit--
 
-    Idol - Yoasobi (Buildup + chorus part) using Arduino UNO buzzer
-    Made in Arduino IDE by Iwan_Aizakku
-
     RTC-Code From www.cybertice.com/article/677/
 
     Fur Elise
@@ -26,24 +23,29 @@
 #include <Keypad.h>
 
 // Defines
-#define I2CADDR 0x20
-#define DS3231_I2C_ADDRESS 0x68
-#define SCREEN_WIDTH 128 // OLED display width, in pixels
-#define SCREEN_HEIGHT 64 // OLED display height, in pixels
-#define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
-#define SCREEN_ADDRESS 0x3C
+#define I2CADDR 0x20 //กำหนดช่องสัญญาณ
+#define DS3231_I2C_ADDRESS 0x68 //กำหนดช่องสัญญาณ
+#define SCREEN_WIDTH 128 // ความกว้างจอ OLED
+#define SCREEN_HEIGHT 64 // ความสูงจอ OLED
+#define OLED_RESET     4 // กำหนดช่องสัญญาณ Reset OLED
+#define SCREEN_ADDRESS 0x3C //กำหนดช่องสัญญาณ
+
+//-------------MQTT---------------
 #define TOPIC_PASSCODE TOPIC_PREFIX "/pass"
 #define TOPIC_ST TOPIC_PREFIX "/start"
 #define TOPIC_PE TOPIC_PREFIX "/pause"
 #define TOPIC_SP TOPIC_PREFIX "/speed"
 #define TOPIC_TM TOPIC_PREFIX "/time"
 #define TOPIC_TL TOPIC_PREFIX "/timeleft"
+
+
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 RTC_DS3231 rtc;
-//String time;
 WiFiClient wifiClient;
 PubSubClient mqtt(MQTT_BROKER, 1883, wifiClient);
 uint32_t last_publish;
+
+//-------------Convert Bytes---------------
 byte decToBcd(byte val)
 {
   return ( (val / 10 * 16) + (val % 10) );
@@ -212,9 +214,10 @@ const int melody[] PROGMEM = {
   **/
 };
 
+//------------Declare-------------------
 const byte ROWS = 4;  // กำหนดจำนวนของ Rows
-const byte COLS = 4;
-const int buzzer = 4; //buzzer is on pin 8
+const byte COLS = 4; // กำหนดจำนวนของ COLS
+const int buzzer = 4; //buzzer is on pin 4
 const int buttonsw = 2;
 int buttonState = 0;
 int buttonStart = 1;
@@ -228,7 +231,11 @@ int wholenote = (60000 * 4) / tempo;
 int divider = 0, noteDuration = 0;
 int rnum = 0;
 int rsec = 0;
-int songspeed = 0.9;
+int songspeed = 0.9; //ความเร็วเพลง
+int rled = 19;
+int yled = 20;
+int gled = 21;
+
 
 char keys[ROWS][COLS] = {
   {'1','2','3','A'},
@@ -244,9 +251,14 @@ String password = "0000";
 String pad;
 
 void setup() {
-  rnum = random(45, 60);
-  rsec = rnum*60;
-  //rsec=3;
+  rnum = random(45, 60); //สุ่มเวลาในช่วง 45-60 นาที
+  rsec = rnum*60; //แปลงเป็นวินาที
+  pinMode(rled, OUTPUT);
+  pinMode(yled, OUTPUT);
+  pinMode(gled, OUTPUT);
+  digitalWrite(rled,HIGH);
+  digitalWrite(yled,LOW);
+  digitalWrite(gled,LOW);
   Serial.begin(9600);
   Wire.begin(48, 47);
   connect_wifi();
@@ -256,6 +268,8 @@ void setup() {
   pinMode(2, INPUT_PULLUP);
   pinMode(buzzer, OUTPUT);
   delay(500); 
+
+  //---------RTC Check------------
   if (! rtc.begin()) {
     Serial.println("Couldn't find RTC");
     Serial.flush();
@@ -263,6 +277,8 @@ void setup() {
   }
   rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
   //time.reserve(10);
+
+  //---------OLED Check------------
   if(!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;); // Don't proceed, loop forever
@@ -277,7 +293,6 @@ void setup() {
 }
 
 void loop() {
-  //char key = keypad.getKey();
   digitalWrite(buzzer,LOW);
   mqtt.loop();
   readKeypad();
@@ -354,18 +369,9 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     Serial.print((char*)payload);
     password = (char*)payload;
   }
-  /*if (strcmp(topic, TOPIC_SP) == 0) {
-    payload[length] = 0; // null-terminate the payload to treat it as a string
-    //Serial.print((char*)payload);
-    String spd = (char*)payload;
-    songspeed = spd.toInt();
-  }
-  */
   if (strcmp(topic, TOPIC_TM) == 0) {
     payload[length] = 0; // null-terminate the payload to treat it as a string
-    //Serial.print((char*)payload);
     String timx = (char*)payload;
-    //Serial.print(timx);
     rsec = timx.toInt();
   }
   if (strcmp(topic, TOPIC_PE) == 0) {
@@ -373,9 +379,11 @@ void mqtt_callback(char* topic, byte* payload, unsigned int length) {
     int value = atoi((char*)payload); 
     if (value == 1) {
       checkpause = 1;
+      digitalWrite(yled,HIGH);
     }
     else{
       checkpause = 0;
+      digitalWrite(yled,LOW);
     }
   }
 }
@@ -438,7 +446,7 @@ void oledDisplayCenter() {
   display.print(month, DEC);
   display.print("/");
   display.println(year, DEC);
-  display.print(hour, DEC); // แสดงผลข้อความ ALL
+  display.print(hour, DEC); // แสดงผลข้อความ 
   display.print(":");
   if (minute < 10)
   {
@@ -453,7 +461,6 @@ void oledDisplayCenter() {
 
   display.print(second, DEC);
   display.println(" ");
-  //display.println(" Day of week: ");
 
   switch (dayOfWeek) {
     case 1:
@@ -486,7 +493,10 @@ void oledDisplayCenter() {
   rsec -= 1;
   }
   if (rsec == 0){
-    //song2();
+    digitalWrite(gled,HIGH);
+    digitalWrite(yled,LOW);
+    digitalWrite(rled,LOW);
+    song2();
     checkpush = 1;
     //introMessage();
     rnum = random(45, 60);
@@ -498,351 +508,6 @@ void oledDisplayCenter() {
   timeleft();
 }
 
-//Idol-Yoasobii
-void song1(){
-  tone(buzzer, NOTE_GS4);
-  delay(194);
-  tone(buzzer, NOTE_DS5);
-  delay(194);
-  tone(buzzer, NOTE_CS5);
-  delay(194);
-  noTone(buzzer);
-  delay(190);
-  tone(buzzer, NOTE_CS5);
-  delay(194);
-  noTone(buzzer);
-  delay(190);
-  tone(buzzer, NOTE_CS5);
-  delay(194);
-  noTone(buzzer);
-  delay(110);
-  tone(buzzer, NOTE_CS5);
-  delay(194);
-  noTone(buzzer);
-  delay(110);
-  tone(buzzer, NOTE_CS5);
-  delay(194);
-  noTone(buzzer);
-  delay(190);
-  tone(buzzer, NOTE_B4);
-  delay(194);
-  tone(buzzer, NOTE_CS5);
-  delay(194);
-  tone(buzzer, NOTE_B4);
-  delay(194);
-  tone(buzzer, NOTE_CS5);
-  delay(194);
-  tone(buzzer, NOTE_B4);
-  delay(194);
-  tone(buzzer, NOTE_CS5);
-  delay(194);
-
-
-  // Mata suki ni saseru
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  tone(buzzer, NOTE_DS5);
-  delay(194);
-  noTone(buzzer);
-  delay(360);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  tone(buzzer, NOTE_DS5);
-  delay(194);
-  noTone(buzzer);
-  delay(200);
-  tone(buzzer, NOTE_GS5);
-  delay(194);
-  tone(buzzer, NOTE_G5);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_GS5);
-  delay(194);
-  tone(buzzer, NOTE_G5);
-  delay(194);
-  tone(buzzer, NOTE_GS5);
-  delay(194);
-  tone(buzzer, NOTE_AS5);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-
-
-  // Daremo ga me wo ubawareteiku
-  tone(buzzer, NOTE_E4);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-
-
-  // Kimi wa kanpeki de kyuukyoku no aidoru
-  tone(buzzer, NOTE_E4);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_B4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_B4);
-  delay(194);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  tone(buzzer, NOTE_D5);
-  delay(194);
-  tone(buzzer, NOTE_F5);
-  delay(200);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-
-
-  // Konrinzai arawarenai
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-
-
-  // Ichibanboshi no umarekawari
-  tone(buzzer, NOTE_E4);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_B4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194); 
-
-  // Ah, sono egao de aishiteru de
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(200);
-  noTone(buzzer);
-  delay(380);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  tone(buzzer, NOTE_D5);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(380);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  tone(buzzer, NOTE_D5);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-
-  // Daremo kare mo toriko ni shite iku 
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_D5);
-  delay(194);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  tone(buzzer, NOTE_D5);
-  delay(194);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  tone(buzzer, NOTE_D5);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  tone(buzzer, NOTE_E4);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(200);
-  noTone(buzzer);
-  delay(350);
-
-  // Sono hitomi ga
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  tone(buzzer, NOTE_D5);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(220);
-  noTone(buzzer);
-  delay(350);
-
-  // Sono kotoba ga uso demo
-  // Sore wa kanzen na ai
-  tone(buzzer, NOTE_G4);
-  delay(80);
-  noTone(buzzer);
-  delay(30);
-  tone(buzzer, NOTE_G4);
-  delay(100);
-  tone(buzzer, NOTE_A4);
-  delay(200);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  tone(buzzer, NOTE_D5);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(200);
-  noTone(buzzer);
-  delay(8);
-  tone(buzzer, NOTE_D5);
-  delay(194);
-  tone(buzzer, NOTE_E5);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  tone(buzzer, NOTE_C5);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  tone(buzzer, NOTE_E4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(194);
-  noTone(buzzer);
-  delay(194);
-  tone(buzzer, NOTE_G4);
-  delay(194);
-  tone(buzzer, NOTE_A4);
-  delay(220);
-  noTone(buzzer);
-}
-//
 void song2(){
   for (int thisNote = 0; thisNote < notes * 2; thisNote = thisNote + 2) {
 
@@ -932,8 +597,11 @@ void access(){
   delay(5000);
   checkpush = 0;
   checksent = 0;
-  String payload("1");
-  mqtt.publish(TOPIC_ST, payload.c_str());
+  //String payload("1");
+  //mqtt.publish(TOPIC_ST, payload.c_str());
+  digitalWrite(gled,LOW);
+  digitalWrite(yled,LOW);
+  digitalWrite(rled,HIGH);
 }
 void denied(){
   display.clearDisplay();
