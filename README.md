@@ -49,7 +49,7 @@
 ```
 
 ## Developed By
-1) Jiraphat Sritawee | <a href="https://www.w3schools.com">@HikaruMG</a>
+1) Jiraphat Sritawee | <a href="https://github.com/HikaruMG">@HikaruMG</a>
 2) Thammapat Rattanataipop |
 
 <hr>
