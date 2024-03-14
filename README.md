@@ -28,16 +28,17 @@
 ## Directory
 
 ```
-├── BoardA
-│   ├── BoardA.ino //Main File For BoardA
-│   ├── Chords //SheetNote
-│   ├── config.h //MQTT Setup
-│   ├── pitches.h //Buzzer Define Tone
-├── BoardB
-│   ├── BoardA.ino //Main File For BoardA
-│   ├── Chords //SheetNote
-│   ├── config.h //MQTT Setup
-│   ├── pitches.h //Buzzer Define Tone
+├── Main
+│   ├── BoardA
+│   │   ├── BoardA.ino //Main File For BoardA
+│   │   ├── Chords //SheetNote
+│   │   ├── config.h //MQTT Setup
+│   │   ├── pitches.h //Buzzer Define Tone
+│   ├── BoardB
+│   │   ├── BoardA.ino //Main File For BoardA
+│   │   ├── Chords //SheetNote
+│   │   ├── config.h //MQTT Setup
+│   │   ├── pitches.h //Buzzer Define Tone
 ├── PCB-Design
 │   ├── Gerber_WarnGuard_PCB_WarnGuard_2.zip //Gerber File
 │   ├── PCB_PCB_WarnGuard_2 //Plate PCB Front
